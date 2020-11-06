@@ -1,13 +1,9 @@
 const MongoClient = require('mongodb').MongoClient;
 const assert = require('assert');
 
-// Connection URL
 const url = 'mongodb://localhost:27017';
-
-// Database Name
 const dbName = 'stonkGame';
 
-// Use connect method to connect to the Server
 async function dbRunQuery(collectionName, operation, params) {
   const client = new MongoClient(url, { useUnifiedTopology: true });
   try {
@@ -50,14 +46,12 @@ function dbGetLatestStockData() {
   })
 }
 
-async function dbGetUserData(username, password, projection) {
-  return await dbRunQuery('userData', (collection, params) => {
+async function dbGetUserData(filter, projection) {
+  return await dbRunQuery('userData', (collection) => {
     return new Promise(async (resolve, reject) => {
-      const { username, password } = params
-      
       try {
-        console.log(`Fetching userData for ${username}`)
-        const cursor = await collection.find({ username, password }).project(projection);
+        console.log(`Fetching userData`)
+        const cursor = await collection.find(filter).project(projection)
         if ((await cursor.count()) === 0) {
           resolve(0)
         }
@@ -69,7 +63,7 @@ async function dbGetUserData(username, password, projection) {
         reject(e)
       }
     })
-  }, { username, password })
+  })
 }
 
 module.exports = {

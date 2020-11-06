@@ -1,9 +1,9 @@
 var express = require('express')
-const { update } = require('lodash')
 var router = express.Router()
 const { v4: uuidv4 } = require('uuid')
 
 const { dbRunQuery, dbGetUserData } = require('./dbClient')
+const { generateId } = require('./utils')
 
 router.post('/buy', async (req, res) => {
   const {
@@ -21,9 +21,8 @@ router.post('/buy', async (req, res) => {
     return res.status(401).send("100")
   }
 
-  // maybe only get part of the object here
   const projection = {remainingCash: 1, portfolio: 1}
-  const userSession = await dbGetUserData(username, password, projection)
+  const userSession = await dbGetUserData({ username, password }, projection)
   if (!userSession) {
     console.log('Username not found or password does not match')
     return res.status(401).send("140")
@@ -37,10 +36,9 @@ router.post('/buy', async (req, res) => {
     return
   }
 
-  const transactionId = uuidv4()
   const newTransaction = {
     timeOfPurchase: Date.now(),
-    id: transactionId,
+    id: generateId(),
     ticker,
     numberOfSharesPurchased: numberOfSharesToPurchase,
     pricePerSharePurchased: pricePerShareToPurchase,
@@ -67,6 +65,7 @@ router.post('/buy', async (req, res) => {
     username,
     newTransaction,
     userSession: {
+      ticker,
       portfolioOfTicker: {
         ...userSession.portfolio[ticker], 
       },
@@ -81,25 +80,14 @@ router.post('/buy', async (req, res) => {
         newTransaction,
         userSession: {
           remainingCash,
+          ticker,
           portfolioOfTicker,
         },
       } = params
 
-      const portfolio = {}
-      portfolio[ticker] = portfolioOfTicker
-
-      const updateDoc = {
-        $set: { 
-          remainingCash,
-          portfolio,
-        },
-        $push: { 
-          transactions: {
-            $each: [newTransaction],
-            $position: 0,
-          } 
-        }
-      }
+      const updateDoc = {$set: {remainingCash}}
+      updateDoc.$set[`portfolio.${ticker}`] = portfolioOfTicker
+      updateDoc.$set[`transactions.${newTransaction.id}`] = newTransaction
 
       try {
         console.log(`Updating ${username} for buy ${newTransaction.ticker}`)
@@ -120,7 +108,7 @@ router.post('/buy', async (req, res) => {
   res.status(201).send({
     remainingCash: userSession.remainingCash,
     pricePerShareToPurchase,
-    transactionId,
+    transactionID: newTransaction.id,
   })
 })
 
@@ -128,24 +116,33 @@ router.post('/sell', async (req, res) => {
   const {
     username,
     password,
-    transactionIDs,
+    transactionIDsToSell,
   } = req.body
 
-  if (!username || !password || transactionIDs.length === 0) {
+  if (!username || !password || transactionIDsToSell.length === 0) {
     return res.status(401).send("100")
   }
 
-  const projection = {remainingCash: 1, transactions: 1, portfolio: 1}
-  const userSession = await dbGetUserData(username, password, projection)
+  const filter = { 
+    username,
+    password,
+  }
+  // filter['transactions'] = {$in: transactionIDsToSell}
+  const projection = {remainingCash: 1, transactions: 1, portfolio: 1, totalTaxPaid: 1}
+  const userSession = await dbGetUserData(filter, projection)
   if (!userSession) {
     console.log('Username not found or password does not match')
     return res.status(401).send("140")
   }
+
+  console.log(userSession.transactions)
+  return res.sendStatus(205)
   
   let taxPaid = 0
-  for (transactionId of transactionIDs) {
+  for (let i = 0; i < transactionIDsToSell.length; i++) {
+
     for (transaction of userSession.transactions) {
-      if (transactionId === transaction.id) {
+      if (transactionID === transaction.id) {
         const pricePerShareToSell = 200
         const currentPriceOfTransaction = Math.floor((pricePerShareToSell * transaction.numberOfSharesPurchased) * 100) / 100
         const grossProfit = currentPriceOfTransaction - (transaction.numberOfSharesPurchased * transaction.pricePerSharePurchased)
