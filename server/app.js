@@ -111,7 +111,7 @@ app.post('/user', async (req, res) => {
         sid: res.locals.sid,
         username: username,
         password: password,
-        transactions: {},
+        transactions: [],
         remainingCash: 100000,
         portfolio: {},
         totalTaxPaid: 0,

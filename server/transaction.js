@@ -85,9 +85,14 @@ router.post('/buy', async (req, res) => {
         },
       } = params
 
-      const updateDoc = {$set: {remainingCash}}
+      const updateDoc = {
+        $set: { remainingCash },
+        $push: {
+          transactions: newTransaction,
+        }
+      }
       updateDoc.$set[`portfolio.${ticker}`] = portfolioOfTicker
-      updateDoc.$set[`transactions.${newTransaction.id}`] = newTransaction
+      // updateDoc.$set[`transactions.${newTransaction.id}`] = newTransaction
 
       try {
         console.log(`Updating ${username} for buy ${newTransaction.ticker}`)
@@ -123,39 +128,31 @@ router.post('/sell', async (req, res) => {
     return res.status(401).send("100")
   }
 
-  const filter = { 
-    username,
-    password,
-  }
-  // filter['transactions'] = {$in: transactionIDsToSell}
+  // filter['transactions.$.id'] = {$in: transactionIDsToSell}
   const projection = {remainingCash: 1, transactions: 1, portfolio: 1, totalTaxPaid: 1}
-  const userSession = await dbGetUserData(filter, projection)
+  const userSession = await dbGetUserData({ username, password }, projection)
   if (!userSession) {
     console.log('Username not found or password does not match')
     return res.status(401).send("140")
   }
-
-  console.log(userSession.transactions)
-  return res.sendStatus(205)
   
-  let taxPaid = 0
   for (let i = 0; i < transactionIDsToSell.length; i++) {
-
     for (transaction of userSession.transactions) {
-      if (transactionID === transaction.id) {
+      if (transactionIDsToSell[i] === transaction.id) {
+        transactionIDsToSell.shift()
         const pricePerShareToSell = 200
         const currentPriceOfTransaction = Math.floor((pricePerShareToSell * transaction.numberOfSharesPurchased) * 100) / 100
-        const grossProfit = currentPriceOfTransaction - (transaction.numberOfSharesPurchased * transaction.pricePerSharePurchased)
+        const purchasePriceOfTransaction = Math.floor((transaction.numberOfSharesPurchased * transaction.pricePerSharePurchased) * 100) / 100
+        const grossProfit = currentPriceOfTransaction - purchasePriceOfTransaction
         if (grossProfit > 0) {
           const netProfit = Math.floor((grossProfit * 0.85) * 100) / 100
-          userSession.remainingCash += netProfit
-          taxPaid += grossProfit - netProfit
+          userSession.remainingCash += netProfit + purchasePriceOfTransaction
+          userSession.totalTaxPaid += grossProfit - netProfit
           transaction.profit = netProfit
         } else {
           transaction.profit = grossProfit
         }
         
-        transaction.totalTaxPaid -= taxPaid
         transaction.timeOfSale = Date.now()
         transaction.pricePerShareSold = pricePerShareToSell
         transaction.indexOfSale = res.locals.index
@@ -165,36 +162,19 @@ router.post('/sell', async (req, res) => {
 
   // TODO update portfolio view
 
+  const params = {
+    username,
+    password,
+    transactions: userSession.transactions,
+    totalTaxPaid: userSession.totalTaxPaid,
+    remainingCash: userSession.remainingCash,
+  }
+  // TODO dont reinsert all of the transactions
   const result = await dbRunQuery('userData', (collection, params) => {
     return new Promise(async (resolve, reject) => {
-      const {
-        username,
-        remainingCash,
-        totalTaxPaid,
-        tranactions,
-      } = params
-
-      
-      // const portfolio = {}
-      // portfolio[ticker] = portfolioOfTicker
-      
-      const filter = { username, 'transactions.id': transactionID}
-      const updateDoc = {
-        $set: { 
-          remainingCash,
-          totalTaxPaid,
-          // portfolio,
-          'transactions.$.timeOfSale': timeOfSale,
-          'transactions.$.totalTaxPaid': totalTaxPaid,
-          'transactions.$.timeOfSale': timeOfSale,
-          'transactions.$.pricePerShareSold': pricePerShareSold,
-          'transactions.$.indexOfSale': indexOfSale,
-        }
-      }
-
       try {
-        console.log(`Updating ${username}, transactionID: ${transactionID}`)
-        const result = await collection.updateOne(filter, updateDoc)
+        console.log(`Updating sell transactions for ${username}`)
+        const result = await collection.updateOne({ username, password }, {$set: params})
         if (result.result.ok != 1) {
           console.log('Failed to update document')  
           reject(0)
