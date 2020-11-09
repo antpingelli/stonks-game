@@ -9,6 +9,16 @@ function generateId(size = 10) {
   return id;
 }
 
+function roundDown(num) {
+  return Math.floor(num * 100) / 100;
+}
+
+function roundUp(num) {
+  return Math.ceil(num * 100) / 100;
+}
+
 module.exports = {
   generateId,
+  roundDown,
+  roundUp,
 };

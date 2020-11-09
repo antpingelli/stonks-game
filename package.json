@@ -7,9 +7,13 @@
     "url": "https://github.com/antpingelli/stonks-game.git"
   },
   "scripts": {
+    "lint": "npx eslint server/ --ext .jsx --ext .js -f table --fix",
     "start:api": "node server/src/app.js",
-    "lint": "npx eslint . --ext .jsx --ext .js -f table --fix",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test:api": "echo \"Error: no test specified\" && exit 1",
+    "start:ui": "react-scripts start",
+    "build:ui": "react-scripts build",
+    "test:ui": "react-scripts test",
+    "eject": "react-scripts eject"
   },
   "prettier": {
     "arrowParens": "always",
@@ -18,13 +22,38 @@
     "tabWidth": 2,
     "trailingComma": "es5"
   },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
   "dependencies": {
+    "@testing-library/jest-dom": "^5.11.5",
+    "@testing-library/react": "^11.1.1",
+    "@testing-library/user-event": "^12.2.0",
     "cookie-parser": "^1.4.5",
     "express": "^4.17.1",
     "lodash": "^4.17.20",
     "mongodb": "^3.6.2",
+    "react": "^17.0.1",
+    "react-dom": "^17.0.1",
+    "react-scripts": "4.0.0",
     "socket.io": "^2.3.0",
-    "uuid": "^8.3.1"
+    "uuid": "^8.3.1",
+    "web-vitals": "^0.2.4"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^4.6.1",

@@ -6,7 +6,7 @@ const http = require('http').createServer(app);
 const io = require('socket.io')(http);
 
 const { dbRunQuery } = require('./common/dbClient');
-const { getSessionDBHelper } = require('./dbUtils');
+const { getSessionDBHelper, authorizeUserDBHelper } = require('./dbUtils');
 
 const sessionRouter = require('./routes/session/session');
 const userRouter = require('./routes/user/user');
@@ -17,43 +17,47 @@ const port = 3000;
 app.use(express.json());
 // eslint-disable-next-line consistent-return
 app.use(async (req, res, next) => {
-  const { stonkSession } = req.body;
+  const { sid } = req.body;
 
-  if (stonkSession) {
-    const result = await dbRunQuery('sessionData', getSessionDBHelper, { sid: stonkSession });
+  if (sid) {
+    const sessionResult = await dbRunQuery('sessionData', getSessionDBHelper, { sid });
 
-    if (_.isEmpty(result)) {
-      console.log(`Error: Empty sessionData for ${stonkSession}`);
-      return res.status(400).send('30');
+    if (_.isEmpty(sessionResult)) {
+      console.log(`Error: Empty sessionData for ${sid}`);
+      return res.status(400).send({ code: 30 });
     }
 
-    res.locals.interval = result.interval;
-    res.locals.index = result.index;
-    res.locals.sid = result.sid;
+    res.locals.interval = sessionResult.interval;
+    res.locals.index = sessionResult.index;
+
+    // authorization
+    const { username, password } = req.body;
+    if (username && password) {
+      try {
+        const userResult = await dbRunQuery('userData', authorizeUserDBHelper, { sid });
+
+        if (_.isEmpty(userResult)) {
+          console.log(`Error: No user found for ${username}`);
+          return res.status(401).send({ code: 40 });
+        }
+
+        res.locals.isAuthorized = true;
+      } catch (e) {
+        return res.sendStatus(401).send({ code: 45 });
+      }
+    }
   }
 
   next();
 });
 
-app.get('/', (req, res) => {
-  res.sendFile(`${__dirname}/index.html`);
-});
-
-// app.get('/start', (req, res) => {
-//   function sendStockData() {
-//     // this may fail if sessionData changes ie another session is created while still evaling
-//     io.emit('stock price', priceData[sessionData.stockDataIndex]) // `PG: ${priceData[i].PG}, INTC: ${priceData[i].INTC}`)
-//     sessionData.stockDataIndex += 1
-//   }
-
-//   sessionData.stockDataInterval = setInterval(sendStockData, sessionData.interval);
-
-//   res.sendStatus(200)
-// })
-
 app.use('/session', sessionRouter);
 app.use('/user', userRouter);
 app.use('/transaction', transactionRouter);
+
+// app.get('/', (req, res) => {
+//   res.sendFile(`${__dirname}/index.html`);
+// });
 
 io.on('connection', (socket) => {
   socket.on('chat message', (msg) => {

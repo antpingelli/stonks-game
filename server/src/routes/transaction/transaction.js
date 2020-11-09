@@ -4,7 +4,7 @@ const router = express.Router();
 
 const { buyDBHelper, sellDBHelper } = require('./dbUtils');
 const { dbRunQuery, dbGetUserData } = require('../../common/dbClient');
-const { generateId } = require('../../common/utils');
+const { generateId, roundDown, roundUp } = require('../../common/utils');
 
 router.post('/buy', async (req, res) => {
   const { username, password, ticker, numberOfSharesToPurchase } = req.body;
@@ -26,7 +26,7 @@ router.post('/buy', async (req, res) => {
 
   // get price data
   const pricePerShareToPurchase = 100; // priceData[sessions[stonkSession].index][ticker]
-  const totalPrice = Math.ceil(pricePerShareToPurchase * numberOfSharesToPurchase * 100) / 100;
+  const totalPrice = roundUp(pricePerShareToPurchase * numberOfSharesToPurchase);
   if (userSession.remainingCash < totalPrice) {
     return res.status(401).send('200');
   }
@@ -98,13 +98,13 @@ router.post('/sell', async (req, res) => {
       if (transactionIDsToSell[i] === transaction.id) {
         transactionIDsToSell.shift();
         const pricePerShareToSell = 200;
-        const currentPriceOfTransaction =
-          Math.floor(pricePerShareToSell * transaction.numberOfSharesPurchased * 100) / 100;
-        const purchasePriceOfTransaction =
-          Math.floor(transaction.numberOfSharesPurchased * transaction.pricePerSharePurchased * 100) / 100;
+        const currentPriceOfTransaction = roundDown(pricePerShareToSell * transaction.numberOfSharesPurchased);
+        const purchasePriceOfTransaction = roundDown(
+          transaction.numberOfSharesPurchased * transaction.pricePerSharePurchased
+        );
         const grossProfit = currentPriceOfTransaction - purchasePriceOfTransaction;
         if (grossProfit > 0) {
-          const netProfit = Math.floor(grossProfit * 0.85 * 100) / 100;
+          const netProfit = roundDown(grossProfit * 0.85);
           userSession.remainingCash += netProfit + purchasePriceOfTransaction;
           userSession.totalTaxPaid += grossProfit - netProfit;
           transaction.profit = netProfit;
