@@ -1,3 +1,5 @@
+const { sessionState } = require('../../common/constants');
+
 async function createDBHelper(collection, params) {
   const { totalTime, uuid } = params;
   const doc = {
@@ -35,7 +37,38 @@ async function startDBHelper(collection, params) {
   }
 }
 
+async function activateSessionsDBHelper(collection, params) {
+  const { sid, status } = params;
+  const updateDoc = {
+    $set: {
+      status,
+    },
+  };
+
+  try {
+    console.log(`Changing status of ${sid} to ${status}`);
+    const result = await collection.updateOne({ sid }, updateDoc);
+    return Promise.resolve(result.modifiedCount);
+  } catch (e) {
+    console.log(`Error: Changing status of ${sid} to ${status}\n ${e}`);
+    return Promise.reject(e);
+  }
+}
+
+async function getActiveSessionsDBHelper(collection) {
+  try {
+    console.log(`Creating session ${uuid}`);
+    const cursor = await collection.find({ status: sessionState.ACTIVE });
+    return Promise.resolve(cursor);
+  } catch (e) {
+    console.log(`Error: Getting active sessions\n ${e}`);
+    return Promise.reject(e);
+  }
+}
+
 module.exports = {
   createDBHelper,
   startDBHelper,
+  activateSessionsDBHelper,
+  getActiveSessionsDBHelper,
 };

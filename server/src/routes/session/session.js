@@ -5,8 +5,13 @@ const router = express.Router();
 
 const stockData = require('../../../data/prices.json');
 
-const { createDBHelper } = require('./dbUtils');
+const { 
+  createDBHelper,
+  getActiveSessionsDBHelper,
+  activateSessionsDBHelper,
+} = require('./dbUtils');
 const { dbRunQuery } = require('../../common/dbClient');
+const { collectionNames } = require('../../common/constants');
 
 router.post('/', async (req, res) => {
   // starting with single day
@@ -31,17 +36,22 @@ router.post('/', async (req, res) => {
 });
 
 router.get('/start', (req, res) => {
+  const result = activateSessionsDBHelper(collectionNames.SESSIONS, {sid: params.body.sid});
+  if (result === 0) {
+    return res.status(400).send({code: 56});
+  }
+  
+  // TODO this only works for one session at a time
   setInterval(
     () => {
-      
+      const cursor = await getActiveSessionsDBHelper(collectionNames.SESSIONS);
 
-    // this may fail if sessionData changes ie another session is created while still evaling
-    // io.emit('stock price', priceData[sessionData.stockDataIndex]) // `PG: ${priceData[i].PG}, INTC: ${priceData[i].INTC}`)
-    // sessionData.stockDataIndex += 1;
-    }, 
+      await cursor.forEach((session) => {
+        io.emit('stockData', stockData[session.index]) // `PG: ${priceData[i].PG}, INTC: ${priceData[i].INTC}`)
+      });
+    },
     res.locals.interval
   );
-
   return res.sendStatus(200);
 });
 

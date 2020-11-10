@@ -92,6 +92,7 @@ router.post('/sell', async (req, res) => {
     return res.status(401).send('140');
   }
 
+  const returnTransactions = [];
   for (let i = 0; i < transactionIDsToSell.length; i += 1) {
     for (let j = 0; j < userSession.transactions.length; j += 1) {
       const transaction = userSession.transactions[j];
@@ -114,6 +115,8 @@ router.post('/sell', async (req, res) => {
         transaction.timeOfSale = Date.now();
         transaction.pricePerShareSold = pricePerShareToSell;
         transaction.indexOfSale = res.locals.index;
+
+        returnTransactions.push(transaction);
 
         // calculate new portfolioOfTicker
         const portfolioOfTicker = userSession.portfolio[transaction.ticker];
@@ -143,7 +146,7 @@ router.post('/sell', async (req, res) => {
   await dbRunQuery('userData', sellDBHelper, dbParams);
 
   // TODO error handling for invalid transaction id
-  return res.sendStatus(200);
+  return res.status(200).send({ success: returnTransactions });
 });
 
 module.exports = router;
