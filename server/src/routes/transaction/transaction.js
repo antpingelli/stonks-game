@@ -6,6 +6,8 @@ const { buyDBHelper, sellDBHelper } = require('./dbUtils');
 const { dbRunQuery, dbGetUserData } = require('../../common/dbClient');
 const { generateId, roundDown, roundUp } = require('../../common/utils');
 
+const stockData = require('../../../data/prices.json');
+
 router.post('/buy', async (req, res) => {
   const { username, password, ticker, numberOfSharesToPurchase } = req.body;
 
@@ -25,7 +27,7 @@ router.post('/buy', async (req, res) => {
   }
 
   // get price data
-  const pricePerShareToPurchase = 100; // priceData[sessions[stonkSession].index][ticker]
+  const pricePerShareToPurchase = stockData[res.locals.index][ticker];
   const totalPrice = roundUp(pricePerShareToPurchase * numberOfSharesToPurchase);
   if (userSession.remainingCash < totalPrice) {
     return res.status(401).send('200');
@@ -98,7 +100,7 @@ router.post('/sell', async (req, res) => {
       const transaction = userSession.transactions[j];
       if (transactionIDsToSell[i] === transaction.id) {
         transactionIDsToSell.shift();
-        const pricePerShareToSell = 200;
+        const pricePerShareToSell = stockData[res.locals.index][transaction.ticker];
         const currentPriceOfTransaction = roundDown(pricePerShareToSell * transaction.numberOfSharesPurchased);
         const purchasePriceOfTransaction = roundDown(
           transaction.numberOfSharesPurchased * transaction.pricePerSharePurchased

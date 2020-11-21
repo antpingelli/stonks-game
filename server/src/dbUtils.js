@@ -29,6 +29,6 @@ async function authorizeUserDBHelper(collection, params) {
 }
 
 module.exports = {
-  getSessionDBHelper,
   authorizeUserDBHelper,
+  getSessionDBHelper,
 };

@@ -1,5 +1,7 @@
 const { MongoClient } = require('mongodb');
 
+const { collectionNames } = require('./constants');
+
 const url = 'mongodb://localhost:27017';
 const dbName = 'stonkGame';
 
@@ -45,7 +47,7 @@ async function dbRunQuery(collectionName, operation, params) {
 // }
 
 async function dbGetUserData(filter, projection) {
-  return dbRunQuery('userData', async (collection) => {
+  return dbRunQuery(collectionNames.USERS, async (collection) => {
     try {
       console.log(`Fetching userData`);
       const cursor = await collection.find(filter).project(projection);
@@ -62,7 +64,42 @@ async function dbGetUserData(filter, projection) {
   });
 }
 
+async function dbGetSessionsInState(filter) {
+  return dbRunQuery(collectionNames.SESSIONS, async (collection) => {
+    try {
+      console.log(`Getting ${filter.state} sessions`);
+      const cursor = await collection.find(filter);
+      const sessions = await cursor.toArray();
+      return Promise.resolve(sessions);
+    } catch (e) {
+      console.log(`Error: Getting ${filter.state} sessions\n ${e}`);
+      return Promise.reject(e);
+    }
+  });
+}
+
+async function dbChangeSessionState(sid, state) {
+  return dbRunQuery(collectionNames.SESSIONS, async (collection) => {
+    const updateDoc = {
+      $set: {
+        state,
+      },
+    };
+
+    try {
+      console.log(`Changing status of ${sid} to ${state}`);
+      const result = await collection.updateOne({ sid }, updateDoc);
+      return Promise.resolve(result.modifiedCount);
+    } catch (e) {
+      console.log(`Error: Changing status of ${sid} to ${state}\n ${e}`);
+      return Promise.reject(e);
+    }
+  });
+}
+
 module.exports = {
   dbRunQuery,
+  dbChangeSessionState,
   dbGetUserData,
+  dbGetSessionsInState,
 };

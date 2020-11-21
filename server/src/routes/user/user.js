@@ -5,7 +5,7 @@ const router = express.Router();
 const { createDBHelper } = require('./dbUtils');
 const { dbRunQuery } = require('../../common/dbClient');
 
-router.post('/', async (req, res) => {
+router.post('/create', async (req, res) => {
   const { username, password } = req.body;
   // password should be encrypted
   if (!username || !password) {

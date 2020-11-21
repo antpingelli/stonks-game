@@ -1,9 +1,16 @@
 import React from 'react';
+import { io } from 'socket.io-client';
 
 import logo from './logo.svg';
 import './App.css';
 
 function App() {
+  const socket = io('http://localhost:3001');
+
+  socket.on('stockData', (msg) => {
+    console.log(msg);
+  });
+
   return (
     <div className="App">
       <header className="App-header">

@@ -3,15 +3,11 @@ const { v4: uuidv4 } = require('uuid');
 
 const router = express.Router();
 
-const stockData = require('../../../data/prices.json');
+const { createDBHelper, incrementIndexDBHelper } = require('./dbUtils');
+const { dbRunQuery, dbGetSessionsInState, dbChangeSessionState } = require('../../common/dbClient');
+const { collectionNames, sessionState } = require('../../common/constants');
 
-const { 
-  createDBHelper,
-  getActiveSessionsDBHelper,
-  activateSessionsDBHelper,
-} = require('./dbUtils');
-const { dbRunQuery } = require('../../common/dbClient');
-const { collectionNames } = require('../../common/constants');
+const stockData = require('../../../data/prices.json');
 
 router.post('/', async (req, res) => {
   // starting with single day
@@ -26,7 +22,7 @@ router.post('/', async (req, res) => {
     totalTime,
     uuid,
   };
-  const result = await dbRunQuery('sessionData', createDBHelper, params);
+  const result = await dbRunQuery(collectionNames.SESSIONS, createDBHelper, params);
 
   if (!result) {
     return res.sendStatus(500);
@@ -35,23 +31,22 @@ router.post('/', async (req, res) => {
   return res.status(201).send(uuid);
 });
 
-router.get('/start', (req, res) => {
-  const result = activateSessionsDBHelper(collectionNames.SESSIONS, {sid: params.body.sid});
+router.get('/start', async (req, res) => {
+  const result = await dbChangeSessionState(req.body.sid, sessionState.ACTIVE);
   if (result === 0) {
-    return res.status(400).send({code: 56});
+    return res.status(400).send({ code: 56 });
   }
-  
-  // TODO this only works for one session at a time
-  setInterval(
-    () => {
-      const cursor = await getActiveSessionsDBHelper(collectionNames.SESSIONS);
 
-      await cursor.forEach((session) => {
-        io.emit('stockData', stockData[session.index]) // `PG: ${priceData[i].PG}, INTC: ${priceData[i].INTC}`)
-      });
-    },
-    res.locals.interval
-  );
+  setInterval(async () => {
+    const sessions = await dbGetSessionsInState({ state: sessionState.ACTIVE });
+
+    await sessions.forEach(async (session) => {
+      res.locals.io.emit('stockData', stockData[session.index]); // `PG: ${priceData[i].PG}, INTC: ${priceData[i].INTC}`)
+      // TODO might need await here for multiple
+      dbRunQuery(collectionNames.SESSIONS, incrementIndexDBHelper, { sid: session.sid });
+    });
+  }, 5000); // TODO figure out how to not hardcode this
+
   return res.sendStatus(200);
 });
 

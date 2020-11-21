@@ -7,6 +7,7 @@ async function createDBHelper(collection, params) {
     // users: [], may need this but not sure
     interval: totalTime / 50, // TODO this should not be hard coded
     index: 0,
+    state: sessionState.WAITING,
   };
 
   try {
@@ -37,31 +38,19 @@ async function startDBHelper(collection, params) {
   }
 }
 
-async function activateSessionsDBHelper(collection, params) {
-  const { sid, status } = params;
+async function incrementIndexDBHelper(collection, { sid }) {
   const updateDoc = {
-    $set: {
-      status,
+    $inc: {
+      index: 1,
     },
   };
 
   try {
-    console.log(`Changing status of ${sid} to ${status}`);
+    console.log(`Incrementing index for ${sid}`);
     const result = await collection.updateOne({ sid }, updateDoc);
     return Promise.resolve(result.modifiedCount);
   } catch (e) {
-    console.log(`Error: Changing status of ${sid} to ${status}\n ${e}`);
-    return Promise.reject(e);
-  }
-}
-
-async function getActiveSessionsDBHelper(collection) {
-  try {
-    console.log(`Creating session ${uuid}`);
-    const cursor = await collection.find({ status: sessionState.ACTIVE });
-    return Promise.resolve(cursor);
-  } catch (e) {
-    console.log(`Error: Getting active sessions\n ${e}`);
+    console.log(`Error: Incrementing index for ${sid}\n ${e}`);
     return Promise.reject(e);
   }
 }
@@ -69,6 +58,5 @@ async function getActiveSessionsDBHelper(collection) {
 module.exports = {
   createDBHelper,
   startDBHelper,
-  activateSessionsDBHelper,
-  getActiveSessionsDBHelper,
+  incrementIndexDBHelper,
 };
