@@ -74,19 +74,19 @@ router.post('/buy', async (req, res) => {
 
   return res.status(201).send({
     remainingCash: userSession.remainingCash,
-    pricePerShareToPurchase,
-    transactionID: newTransaction.id,
+    price: pricePerShareToPurchase,
+    transactionId: newTransaction.id,
   });
 });
 
 router.post('/sell', async (req, res) => {
-  const { username, password, transactionIDsToSell } = req.body;
+  const { username, password, transactionIdsToSell } = req.body;
 
-  if (!username || !password || transactionIDsToSell.length === 0) {
+  if (!username || !password || transactionIdsToSell.length === 0) {
     return res.status(401).send('100');
   }
 
-  // filter['transactions.$.id'] = {$in: transactionIDsToSell}
+  // filter['transactions.$.id'] = {$in: transactionIdsToSell}
   const projection = { remainingCash: 1, transactions: 1, portfolio: 1, totalTaxPaid: 1 };
   const userSession = await dbGetUserData({ username, password }, projection);
   if (!userSession) {
@@ -95,11 +95,11 @@ router.post('/sell', async (req, res) => {
   }
 
   const returnTransactions = [];
-  for (let i = 0; i < transactionIDsToSell.length; i += 1) {
+  for (let i = 0; i < transactionIdsToSell.length; i += 1) {
     for (let j = 0; j < userSession.transactions.length; j += 1) {
       const transaction = userSession.transactions[j];
-      if (transactionIDsToSell[i] === transaction.id) {
-        transactionIDsToSell.shift();
+      if (transactionIdsToSell[i] === transaction.id) {
+        transactionIdsToSell.shift();
         const pricePerShareToSell = stockData[res.locals.index][transaction.ticker];
         const currentPriceOfTransaction = roundDown(pricePerShareToSell * transaction.numberOfSharesPurchased);
         const purchasePriceOfTransaction = roundDown(
